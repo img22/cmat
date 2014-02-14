@@ -80,11 +80,21 @@ class Ui_MainWindow(object):
         self.metadataList.setHorizontalHeaderLabels(["Metadata Header", "Value"])
         self.metadataList.setObjectName(_fromUtf8("metadataList"))
 
+        #File not found label for unsupported file types
+        self.fileNotSupported = QtGui.QLabel(self.allMetadata)
+        fNotSupportedImage = QtGui.QImage()
+        fNotSupportedImage.load("Resources/fileNotFound-2.png")
+        self.fileNotSupported.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.fileNotSupported.setPixmap(QtGui.QPixmap.fromImage(fNotSupportedImage))
+        self.fileNotSupported.hide()
+
+
         # self.splitter = QtGui.QSplitter(self.centralWidget)
         # self.splitter.addWidget(self.filesBox)
         # self.splitter.addWidget(self.allMetadata)
 
         self.vLayoutTab1.addWidget(self.metadataList)
+        self.vLayoutTab1.addWidget(self.fileNotSupported)
         self.tabArea.addTab(self.allMetadata, _fromUtf8(""))
 
         # The second tab
@@ -101,6 +111,9 @@ class Ui_MainWindow(object):
 
         self.vLayoutTab2.addWidget(self.personalDataList)
         self.tabArea.addTab(self.allPersonalData, _fromUtf8(""))
+
+        # Set the focus of the tab area on the first tab
+        self.tabArea.setCurrentIndex(0)
 
         # Add the tab area to the grid
         self.gridLayoutForAll.addWidget(self.tabArea, 0, 2, 1, 1)
@@ -154,7 +167,7 @@ class Ui_MainWindow(object):
         self.fDialog = QtGui.QFileDialog(self.centralWidget, caption="Pick a file or directory")
 
         self.retranslateUi(MainWindow)
-        self.tabArea.setCurrentIndex(1)
+        self.tabArea.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         self.connectSignals()
 
@@ -183,19 +196,32 @@ class Ui_MainWindow(object):
         self.fDialog.show()
 
     def receiveFileFromDialog(self, path):
-        self.filesList.addItem(fileName.section('/', -1))
+        #self.filesList.addItem(fileName.section('/', -1))
+        pass
 
     def displayMetadata(self, metadata):
-        i = self.metadataList.rowCount()
-        for row in metadata:
-            metaName = QtGui.QTableWidgetItem(row[0])
-            metaValue = QtGui.QTableWidgetItem(row[1])
-            metaName.setFlags(metaName.flags() & (~QtCore.Qt.ItemIsEditable))
-            metaValue.setFlags(metaValue.flags() & (~QtCore.Qt.ItemIsEditable))
-            self.metadataList.insertRow(i)
-            self.metadataList.setItem(i, 0, metaName)
-            self.metadataList.setItem(i, 1, metaValue)
-            i += 1
+        #Unsupported types return -1 as metadata
+        if metadata[0] == -1:
+            self.metadataList.hide()
+            self.fileNotSupported.show()
+
+        #Supported types have list of metadata
+        else:
+            self.fileNotSupported.hide()
+            self.metadataList.show()
+            self.metadataList.clear()
+            self.metadataList.setRowCount(0)
+            self.metadataList.setHorizontalHeaderLabels(["Metadata Header", "Value"])
+            i = self.metadataList.rowCount()
+            for row in metadata:
+                metaName = QtGui.QTableWidgetItem(row[0])
+                metaValue = QtGui.QTableWidgetItem(row[1])
+                metaName.setFlags(metaName.flags() & (~QtCore.Qt.ItemIsEditable))
+                metaValue.setFlags(metaValue.flags() & (~QtCore.Qt.ItemIsEditable))
+                self.metadataList.insertRow(i)
+                self.metadataList.setItem(i, 0, metaName)
+                self.metadataList.setItem(i, 1, metaValue)
+                i += 1
 
     def acceptNewFile(self):
         pass
