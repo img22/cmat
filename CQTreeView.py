@@ -120,3 +120,8 @@ class CQTreeView(QtGui.QTreeWidget):
 		clickedFile = item.text(2)
 		self.fileClicked.emit(self.allFiles[clickedFile].allMetadata)
 
+	def removeFile(self, filePath):
+		self.removeItemWidget(self.allItems[filePath])
+		del self.allFiles[filePath]
+		del self.allItems[filePath]
+

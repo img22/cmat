@@ -189,11 +189,17 @@ class Ui_MainWindow(object):
         #self.fDialog.fileSelected.connect(self.addFileToTable)
         #QtCore.QObject.connect(self.filesList, QtCore.SIGNAL('fileClicked'), self.displayMetadata)
         self.filesList.fileClicked.connect(self.displayMetadata)
+        self.actionRemove.triggered.connect(self.handleRemoveFile)
         #self.filesList.newFile.connect(self.acceptNewFile)
 
 
     def handleActionAdd(self):
         self.fDialog.show()
+
+    def handleRemoveFile(self):
+        for w in self.filesList:
+            self.removeFile(w.text[2])
+        
 
     def receiveFileFromDialog(self, path):
         #self.filesList.addItem(fileName.section('/', -1))
