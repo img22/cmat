@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import QObject, pyqtSignal
 from AddedFile import AddedFile
+import logging
 
 class CQTreeView(QtGui.QTreeWidget):
 
@@ -86,7 +87,7 @@ class CQTreeView(QtGui.QTreeWidget):
 
 	def addFileToTable(self, fileObj):
 		if not fileObj.filePath in self.allFiles.keys():
-			print "Adding", fileObj.fileName, "with parent", fileObj.parent
+			logging.debug("Adding " + str(fileObj.fileName) + " with parent " + str(fileObj.parent))
 			newItem = None
 			size = "-"
 			if fileObj.isFile:
@@ -121,7 +122,20 @@ class CQTreeView(QtGui.QTreeWidget):
 		self.fileClicked.emit(self.allFiles[clickedFile].allMetadata)
 
 	def removeFile(self, filePath):
-		self.removeItemWidget(self.allItems[filePath])
-		del self.allFiles[filePath]
-		del self.allItems[filePath]
+		root = self.invisibleRootItem()
+		item = self.allItems[filePath]
+		if item.parent() is not None:
+			(item.parent()).removeChild(item)
+		else:
+			root.removeChild(item)
+		
+		#remove all children from the dictionary
+		for ind in self.allItems.keys():
+			if filePath in ind or filePath == ind:
+				loggint.debug("Removing " + ind + " from file list.")
+				try:
+					del self.allItems[ind]
+					del self.allFiles[ind]
+				except KeyError:
+					print "No such file", str(filePath)
 

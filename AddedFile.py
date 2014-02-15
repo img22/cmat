@@ -1,6 +1,7 @@
 from PyQt4 import QtCore
 from MAT import mat
 from MAT import strippers
+import logging
 """
 	A class to represent a file dragged into the 
 	workspace of cmat
@@ -17,7 +18,7 @@ class AddedFile:
 		self.filePath = path
 		self.isFile = isfile
 		self.fileSize = sz
-		self.allMetadata = []
+		self.allMetadata = [-1]
 		self.parent = parent
 		self.supported = True
 		self.matObject = None
@@ -29,7 +30,6 @@ class AddedFile:
                 low_pdf_quality=True)
 			if self.matObject is None:
 				self.supported = False
-				self.allMetadata.append(-1)
 				return self.allMetadata
 				
 			metaDict = self.matObject.get_meta()

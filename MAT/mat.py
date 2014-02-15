@@ -19,16 +19,16 @@ __version__ = '0.4'
 __author__ = 'jvoisin'
 
 #Silence
-LOGGING_LEVEL = logging.CRITICAL
-hachoir_core.config.quiet = True
-fname = ''
+#LOGGING_LEVEL = logging.CRITICAL
+#hachoir_core.config.quiet = True
+#logname = ''
 
 #Verbose
 LOGGING_LEVEL = logging.DEBUG
 hachoir_core.config.quiet = False
 logname = 'report.log'
 
-logging.basicConfig(filename=fname, level=LOGGING_LEVEL)
+logging.basicConfig(filename='', level=LOGGING_LEVEL)
 
 import strippers  # this is loaded here because we need LOGGING_LEVEL
 

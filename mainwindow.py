@@ -8,7 +8,12 @@
 
 from PyQt4 import QtCore, QtGui
 from CQTreeView import CQTreeView
-#from slots import *
+import logging
+
+#Debug
+logging.basicConfig(filename="cmatlog.txt", level=logging.DEBUG)
+#Prod
+#logging.basicConfig(filename="cmatlog.txt", level=logging.CRITICAL)
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -131,7 +136,7 @@ class Ui_MainWindow(object):
         self.vLayoutDetailsBox.setContentsMargins(5, 5, 5, 5)
         self.vLayoutDetailsBox.setObjectName(_fromUtf8("vLayoutDetailsBox"))
 
-        # Add scroll area to the details box
+        # Add test area to the details box
         self.detailsDisplay = QtGui.QTextEdit(self.detailsBox)
         self.detailsDisplay.setReadOnly(True)
         
@@ -191,14 +196,17 @@ class Ui_MainWindow(object):
         self.filesList.fileClicked.connect(self.displayMetadata)
         self.actionRemove.triggered.connect(self.handleRemoveFile)
         #self.filesList.newFile.connect(self.acceptNewFile)
+    
+    def writeDetails(self, message):
+		self.detailsDisplay.append(message)
 
 
     def handleActionAdd(self):
         self.fDialog.show()
 
     def handleRemoveFile(self):
-        for w in self.filesList:
-            self.removeFile(w.text[2])
+        for w in self.filesList.selectedItems():
+            self.filesList.removeFile(w.text(2))
         
 
     def receiveFileFromDialog(self, path):
@@ -207,9 +215,11 @@ class Ui_MainWindow(object):
 
     def displayMetadata(self, metadata):
         #Unsupported types return -1 as metadata
+        self.writeDetails("Listing metadata...")
         if metadata[0] == -1:
             self.metadataList.hide()
             self.fileNotSupported.show()
+            self.writeDetails("\tFile type not supported")
 
         #Supported types have list of metadata
         else:
@@ -228,6 +238,7 @@ class Ui_MainWindow(object):
                 self.metadataList.setItem(i, 0, metaName)
                 self.metadataList.setItem(i, 1, metaValue)
                 i += 1
+                self.writeDetails(metaName + ": " + mtaValue)
 
     def acceptNewFile(self):
         pass
