@@ -139,6 +139,9 @@ class Ui_MainWindow(object):
         # Add test area to the details box
         self.detailsDisplay = QtGui.QTextEdit(self.detailsBox)
         self.detailsDisplay.setReadOnly(True)
+        self.detailsDisplay.setTabStopWidth(2)
+        self.detailsDisplay.setFontFamily("\"Courier New\", Courier, monospace")
+        self.detailsDisplay.setFontPointSize(8)
         
         # Add it to the layout
         self.vLayoutDetailsBox.addWidget(self.detailsDisplay)
@@ -216,10 +219,13 @@ class Ui_MainWindow(object):
     def displayMetadata(self, metadata):
         #Unsupported types return -1 as metadata
         self.writeDetails("Listing metadata...")
-        if metadata[0] == -1:
-            self.metadataList.hide()
-            self.fileNotSupported.show()
-            self.writeDetails("\tFile type not supported")
+        if len(metadata) == 0:
+            self.writeDetails("\tNo metadata found!")
+        elif metadata[0] == -1:
+                self.metadataList.hide()
+                self.fileNotSupported.show()
+                self.writeDetails("\tFile type not supported")
+                logging.debug("No metadata, file not supported")
 
         #Supported types have list of metadata
         else:
@@ -238,7 +244,7 @@ class Ui_MainWindow(object):
                 self.metadataList.setItem(i, 0, metaName)
                 self.metadataList.setItem(i, 1, metaValue)
                 i += 1
-                self.writeDetails(metaName + ": " + mtaValue)
+                self.writeDetails("\t" + row[0] + ": " + row[1])
 
     def acceptNewFile(self):
         pass

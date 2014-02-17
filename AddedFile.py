@@ -18,7 +18,7 @@ class AddedFile:
 		self.filePath = path
 		self.isFile = isfile
 		self.fileSize = sz
-		self.allMetadata = [-1]
+		self.allMetadata = []
 		self.parent = parent
 		self.supported = True
 		self.matObject = None
@@ -26,15 +26,21 @@ class AddedFile:
 	def getAllMetadata(self):
 		if self.isFile:
 			#TODO make sure filePath + -old does not exist
+			logging.debug("Extracting metadata for " + self.filePath)
 			self.matObject = mat.create_class_file(str(self.filePath), str(self.filePath + "-old"), add2archive=True,
                 low_pdf_quality=True)
 			if self.matObject is None:
+				logging.debug(self.filePath + " is unsupported!")
+				self.allMetadata.append(-1)
 				self.supported = False
 				return self.allMetadata
 				
 			metaDict = self.matObject.get_meta()
 			for key in metaDict.keys():
+				logging.debug("Found metadata header: " + key)
 				self.allMetadata.append([key, metaDict[key]])
+		else:
+			self.allMetadata.append(-1)
 		return self.allMetadata
 
 	def removeMetadata(mname):
