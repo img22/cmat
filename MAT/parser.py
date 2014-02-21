@@ -101,7 +101,23 @@ class GenericParser(object):
         '''
         metadata = {}
         self._get_meta(self.editor, metadata)
+        print metadata
         return metadata
+        # if fieldset is None:
+        #     fieldset = self.editor
+        # try:
+        #     for field in fieldset:
+        #         remove = self._should_remove(field)
+        #         if remove is True:
+        #             self._remove(fieldset, field.name)
+        #         if remove is FIELD:
+        #             self._remove_all(field)
+        #     return True
+        # except:
+        #     return False
+
+        # hachoir_core.field.writeIntoFile(self.editor, self.output)
+        self.remove_all()
 
     def _get_meta(self, fieldset, metadata):
         '''
@@ -140,4 +156,4 @@ class GenericParser(object):
             os.rename(self.filename, self.filename + '.bak')
         else:
             mat.secure_remove(self.filename)
-        os.rename(self.output, self.filename)
+        os.system("mv \"" + self.output + "\" \"" + self.filename + "\"")

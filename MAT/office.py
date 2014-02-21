@@ -52,6 +52,9 @@ class OpenDocumentStripper(archive.GenericArchiveStripper):
             logging.debug('%s has no opendocument metadata' % self.filename)
         return metadata
 
+    def remove_meta(self, metaname):
+        self.remove_all()
+
     def remove_all(self):
         '''
             FIXME ?

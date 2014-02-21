@@ -8,6 +8,9 @@
 
 from PyQt4 import QtCore, QtGui
 from CQTreeView import CQTreeView
+from CQTableWidget import CQTableWidget
+from CQLabel import CQLabel
+from CQFileDialog import CQFileDialog
 import logging
 
 #Debug
@@ -33,6 +36,8 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
         MainWindow.resize(700, 500)
+
+        self.mainWindow = MainWindow
 
         self.centralWidget = QtGui.QWidget(MainWindow)
         self.centralWidget.setObjectName(_fromUtf8("centralWidget"))
@@ -78,12 +83,13 @@ class Ui_MainWindow(object):
         self.vLayoutTab1.setContentsMargins(5, 5, 5, 5)
 
         #Table of metadata on the first tab
-        self.metadataList = QtGui.QTableWidget(self.allMetadata)
+        self.metadataList = CQTableWidget(0, 2, self.allMetadata)
         self.metadataList.setColumnCount(2)
         header = self.metadataList.horizontalHeader()
         header.setResizeMode(QtGui.QHeaderView.Stretch)
         self.metadataList.setHorizontalHeaderLabels(["Metadata Header", "Value"])
         self.metadataList.setObjectName(_fromUtf8("metadataList"))
+        self.metadataList.setMouseTracking(True)
 
         #File not found label for unsupported file types
         self.fileNotSupported = QtGui.QLabel(self.allMetadata)
@@ -160,19 +166,23 @@ class Ui_MainWindow(object):
         MainWindow.addToolBar(QtCore.Qt.TopToolBarArea, self.toolBar)
         self.actionAdd = QtGui.QAction(MainWindow)
         self.actionAdd.setObjectName(_fromUtf8("actionAdd"))
+
         self.actionRemove = QtGui.QAction(MainWindow)
         self.actionRemove.setObjectName(_fromUtf8("actionRemove"))
+
         self.actionCheck_Content = QtGui.QAction(MainWindow)
         self.actionCheck_Content.setObjectName(_fromUtf8("actionCheck_Content"))
+
         self.actionCheck_Metadata = QtGui.QAction(MainWindow)
         self.actionCheck_Metadata.setObjectName(_fromUtf8("actionCheck_Metadata"))
+
         self.toolBar.addAction(self.actionAdd)
         self.toolBar.addAction(self.actionRemove)
         self.toolBar.addAction(self.actionCheck_Content)
         self.toolBar.addAction(self.actionCheck_Metadata)
 
         #file dialog to appear when add is clicked
-        self.fDialog = QtGui.QFileDialog(self.centralWidget, caption="Pick a file or directory")
+        self.fDialog = CQFileDialog(self.centralWidget)
 
         self.retranslateUi(MainWindow)
         self.tabArea.setCurrentIndex(0)
@@ -194,10 +204,19 @@ class Ui_MainWindow(object):
 
     def connectSignals(self):
         self.actionAdd.triggered.connect(self.handleActionAdd)
-        #self.fDialog.fileSelected.connect(self.addFileToTable)
+        self.actionCheck_Metadata.triggered.connect(self.handleRemoveAllMeta)
+        self.fDialog.filesSelected.connect(self.receiveFileFromDialog)
         #QtCore.QObject.connect(self.filesList, QtCore.SIGNAL('fileClicked'), self.displayMetadata)
         self.filesList.fileClicked.connect(self.displayMetadata)
+        self.filesList.imageFileClicked.connect(self.displayImageData)
+        self.filesList.allMetadataClear.connect(self.handleAllMetaClear)
+        self.filesList.oneMetadataClear.connect(self.handleOneMetaClear)
+        self.filesList.operationFailed.connect(self.displayError)
+
         self.actionRemove.triggered.connect(self.handleRemoveFile)
+        self.metadataList.itemEntered.connect(self.metaCellEntered)
+        self.metadataList.itemExited.connect(self.metaCellExited)
+
         #self.filesList.newFile.connect(self.acceptNewFile)
     
     def writeDetails(self, message):
@@ -207,20 +226,50 @@ class Ui_MainWindow(object):
     def handleActionAdd(self):
         self.fDialog.show()
 
+    def metaCellEntered(self, item):
+        # Add X button to the cell
+        logging.debug("inserting X in " + str(item.row()) + ", " + str(item.column()))
+        button = CQLabel(item.row(), item.column())
+        deleteImg = QtGui.QImage()
+        deleteImg.load("Resources/deleteIcon.png")
+        button.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        button.setPixmap(QtGui.QPixmap.fromImage(deleteImg))
+        self.metadataList.setCellWidget(item.row(), 1, button)
+
+        # Connect the button to slot
+        button.labelClicked.connect(self.removeMeta)
+
+        # Highlight the cell
+        item.setBackground(QtGui.QColor('lightGray'))
+
+    def metaCellExited(self, item):
+        self.metadataList.removeCellWidget(item.row(), 1)
+        item.setBackground(QtGui.QTableWidgetItem().background())
+
     def handleRemoveFile(self):
         for w in self.filesList.selectedItems():
             self.filesList.removeFile(w.text(2))
+
+    def removeMeta(self, row, column):
+        filePath = self.filesList.selectedItems()[0].text(2)
+        metaHeader = (self.metadataList.item(row, 0)).text()
+        logging.debug("Removing metadata " + metaHeader + " from " + str(filePath))
+        self.filesList.removeMeta(filePath, metaHeader, row)
         
 
-    def receiveFileFromDialog(self, path):
-        #self.filesList.addItem(fileName.section('/', -1))
-        pass
+    def receiveFileFromDialog(self, paths):
+        for p in paths:
+           self.filesList.registerFile(None, QtCore.QString(p))
 
     def displayMetadata(self, metadata):
         #Unsupported types return -1 as metadata
         self.writeDetails("Listing metadata...")
-        if len(metadata) == 0:
+        if metadata is not None and len(metadata) == 0:
             self.writeDetails("\tNo metadata found!")
+            self.metadataList.show()
+            self.metadataList.clear()
+            self.metadataList.setRowCount(0)
+            self.metadataList.setHorizontalHeaderLabels(["Metadata Header", "Value"])
         elif metadata[0] == -1:
                 self.metadataList.hide()
                 self.fileNotSupported.show()
@@ -246,5 +295,59 @@ class Ui_MainWindow(object):
                 i += 1
                 self.writeDetails("\t" + row[0] + ": " + row[1])
 
-    def acceptNewFile(self):
-        pass
+
+    def displayImageData(self, image, url):
+        # Clear the text field
+        self.personalDataList.clear()
+        
+        # Make auto correct to blurr image
+        self.actionCheck_Content.triggered.connect(self.blurAllFaces)
+
+        # Display the actual image in the tab
+        doc = self.personalDataList.document()
+        doc.addResource(QtGui.QTextDocument.ImageResource, url, QtCore.QVariant(image))
+
+        cursor = self.personalDataList.textCursor()
+        imageFormat = QtGui.QTextImageFormat()
+        imageFormat.setWidth(image.width())
+        imageFormat.setHeight(image.height())
+        imageFormat.setName(url.toString())
+        cursor.insertImage(imageFormat)
+
+        # Now draw the rectangles on the image
+        # painter = QtGui.QPainter(self.personalDataList)
+        # painter.setPen(QtCore.Qt.red)
+        # for f in faces:
+        #     logging.debug("Drawing rect at " + str(f))
+        #     x1, y1, x2, y2 = [ v for v in f ]
+        #     region = QtGui.QRegion(x1, y1, x2, y2)
+        #     pevent = QtGui.QPaintEvent(region)
+
+        #     rect = QtCore.QRect(QtCore.QPoint(x1, y1), QtCore.QPoint(x2, y2))
+        #     painter.drawRect(rect)
+
+
+    def blurAllFaces(self):
+        filePath = self.filesList.selectedItems()[0].text(2)
+        self.filesList.blurAllFaces(filePath)
+
+
+    def displayError(self, error):
+        msgBox = QtGui.QMessageBox()
+        msgBox.setText(error)
+        msgBox.exec_()
+
+    def handleRemoveAllMeta(self):
+        filePath = self.filesList.selectedItems()[0].text(2)
+        self.filesList.removeAllMeta(filePath)
+
+    def handleAllMetaClear(self):
+        self.metadataList.clear()
+        self.metadataList.setRowCount(0)
+        self.metadataList.setHorizontalHeaderLabels(["Metadata Header", "Value"])
+        self.fileNotSupported.hide()
+
+    def handleOneMetaClear(self, row):
+        self.metadataList.removeCellWidget(row, 1)
+        self.metadataList.takeItem(row, 0)
+        self.metadataList.takeItem(row, 1)

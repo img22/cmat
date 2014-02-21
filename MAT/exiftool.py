@@ -26,6 +26,17 @@ class ExiftoolStripper(parser.GenericParser):
         '''
         raise NotImplementedError
 
+    # Added removing a specific tah
+    def remove_meta(self, metaname):
+        try:
+            if self.backup:
+                self.create_backup_copy()
+            subprocess.call(['exiftool', '-m', '-'+metaname+'=',
+                '-adobe=', '-overwrite_original', self.filename], stdout=open('/dev/null'))
+            return True
+        except:
+            return False
+
     def remove_all(self):
         '''
             Remove all metadata with help of exiftool
