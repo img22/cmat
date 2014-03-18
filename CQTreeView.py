@@ -6,11 +6,13 @@ import numpy
 
 class CQTreeView(QtGui.QTreeWidget):
 
-	fileClicked = QtCore.pyqtSignal(list)
-	imageFileClicked = QtCore.pyqtSignal(QtGui.QImage, QtCore.QUrl)
-	operationFailed = QtCore.pyqtSignal(QtCore.QString)
-	allMetadataClear = QtCore.pyqtSignal(QtCore.QString)
-	oneMetadataClear = QtCore.pyqtSignal(int)
+	#fileClicked       = QtCore.pyqtSignal(list)
+	imageFileClicked  = QtCore.pyqtSignal(QtGui.QImage, QtCore.QUrl)
+	pdfFileClicked    = QtCore.pyqtSignal(list, QtCore.QString)
+	operationFailed   = QtCore.pyqtSignal(QtCore.QString)
+	allMetadataClear  = QtCore.pyqtSignal(QtCore.QString)
+	oneMetadataClear  = QtCore.pyqtSignal(int)
+
 	def __init__(self, obj):
 		self.allFiles = {}
 		self.allItems = {}
@@ -64,11 +66,11 @@ class CQTreeView(QtGui.QTreeWidget):
 		fileSize     = fileInfo.size()
 		droppedFile  = AddedFile(fileName, filePath, isFile, fileSize, parent)
 
-		self.addFileToTable(droppedFile)
-		droppedFile.fileCleaned.connect(self.changeToGreen)
-
 		if isFile:
 			droppedFile.getAllMetadata()
+
+		self.addFileToTable(droppedFile)
+		droppedFile.fileCleaned.connect(self.changeToGreen)
 
 		if not isFile:
 			#print "Processing dir", filePath
@@ -84,7 +86,7 @@ class CQTreeView(QtGui.QTreeWidget):
 
 	def addFileToTable(self, fileObj):
 		if not fileObj.filePath in self.allFiles.keys():
-			logging.debug("Adding " + str(fileObj.fileName) + " with parent " + str(fileObj.parent))
+			logging.debug("Adding " + str(fileObj.filePath) + " with parent " + str(fileObj.parent))
 			newItem = None
 			size = "-"
 			if fileObj.isFile:
@@ -115,7 +117,7 @@ class CQTreeView(QtGui.QTreeWidget):
 			self.changeColor(newItem, "#F78181")
 			self.insertTopLevelItem(0, newItem)
 		else:
-			print "File already added!"
+			logging.error("File already added!")
 			
 
 	def itemClicked(self, item, column):
@@ -123,16 +125,24 @@ class CQTreeView(QtGui.QTreeWidget):
 		fileObj = self.allFiles[clickedFile]
 
 		# If the clicked file is an image
+		logging.debug("Clicked file type " + fileObj.type)
 		imgTypes = ["JpegStripper", "PngStripper"]
+		pdfType = "PdfStripper"
 		if fileObj.type in imgTypes:
 			self.imageItemClicked(fileObj.filePath)
-		self.fileClicked.emit(self.allFiles[clickedFile].getAllMetadata())
+		if fileObj.type == pdfType:
+			self.pdfItemClicked(self.allFiles[clickedFile].getAllMetadata(), fileObj.filePath)
+		#self.fileClicked.emit(self.allFiles[clickedFile].getAllMetadata())
 
 	def imageItemClicked(self, path):
 		url = QtCore.QUrl(QtCore.QString("file://%1").arg(path))
 		fileImg = QtGui.QImageReader(path).read()
 		fileImg.load(path)
 		self.imageFileClicked.emit(fileImg, url)
+
+
+	def pdfItemClicked(self, meta, path):
+		self.pdfFileClicked.emit(meta, path);
 
 
 
@@ -179,11 +189,11 @@ class CQTreeView(QtGui.QTreeWidget):
 		item.setBackgroundColor(1, col)
 
 	def removeAllMeta(self, path):
-		res = True
 		try:
 			res = self.allFiles[path].removeAllMeta()
 		except Exception as inst:
 			self.operationFailed.emit(QtCore.QString(str(inst)))
 			return
+		self.allFiles[path].refreshMetadata()
 		self.allMetadataClear.emit(path)
 

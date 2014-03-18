@@ -12,6 +12,7 @@ from CQTableWidget import CQTableWidget
 from CQLabel import CQLabel
 from CQFileDialog import CQFileDialog
 import logging
+import popplerqt4
 
 #Debug
 logging.basicConfig(filename="cmatlog.txt", level=logging.DEBUG)
@@ -170,16 +171,24 @@ class Ui_MainWindow(object):
         self.actionRemove = QtGui.QAction(MainWindow)
         self.actionRemove.setObjectName(_fromUtf8("actionRemove"))
 
-        self.actionCheck_Content = QtGui.QAction(MainWindow)
+        self.actionCheck_Content = QtGui.QMenu("Auto Remove Content", MainWindow)
         self.actionCheck_Content.setObjectName(_fromUtf8("actionCheck_Content"))
+        self.actionCheck_Content_keep = QtGui.QAction("Keep File", self.actionCheck_Content)
+        self.actionCheck_Content_recon = QtGui.QAction("Remake File", self.actionCheck_Content)
+        self.actionCheck_Content.addAction(self.actionCheck_Content_keep)
+        self.actionCheck_Content.addAction(self.actionCheck_Content_recon)
 
-        self.actionCheck_Metadata = QtGui.QAction(MainWindow)
+        self.actionCheck_Metadata = QtGui.QMenu("Auto Remove Metadata", MainWindow)
         self.actionCheck_Metadata.setObjectName(_fromUtf8("actionCheck_Metadata"))
+        self.actionCheck_Metadata_keep = QtGui.QAction("Keep File", self.actionCheck_Metadata)
+        self.actionCheck_Metadata_recon = QtGui.QAction("Remake File", self.actionCheck_Metadata)
+        self.actionCheck_Metadata.addAction(self.actionCheck_Metadata_keep)
+        self.actionCheck_Metadata.addAction(self.actionCheck_Metadata_recon)
 
         self.toolBar.addAction(self.actionAdd)
         self.toolBar.addAction(self.actionRemove)
-        self.toolBar.addAction(self.actionCheck_Content)
-        self.toolBar.addAction(self.actionCheck_Metadata)
+        self.toolBar.addAction(self.actionCheck_Content.menuAction())
+        self.toolBar.addAction(self.actionCheck_Metadata.menuAction())
 
         #file dialog to appear when add is clicked
         self.fDialog = CQFileDialog(self.centralWidget)
@@ -188,6 +197,8 @@ class Ui_MainWindow(object):
         self.tabArea.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         self.connectSignals()
+
+
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
@@ -198,24 +209,29 @@ class Ui_MainWindow(object):
         self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar", None))
         self.actionAdd.setText(_translate("MainWindow", "Add", None))
         self.actionRemove.setText(_translate("MainWindow", "Remove", None))
-        self.actionCheck_Content.setText(_translate("MainWindow", "Auto Fix Content", None))
-        self.actionCheck_Metadata.setText(_translate("MainWindow", "Auto Remove Metadata", None))
+        # self.actionCheck_Content.setText(_translate("MainWindow", "Auto Fix Content", None))
+        # self.actionCheck_Metadata.setText(_translate("MainWindow", "Auto Remove Metadata", None))
 
 
     def connectSignals(self):
         self.actionAdd.triggered.connect(self.handleActionAdd)
-        self.actionCheck_Metadata.triggered.connect(self.handleRemoveAllMeta)
         self.fDialog.filesSelected.connect(self.receiveFileFromDialog)
         #QtCore.QObject.connect(self.filesList, QtCore.SIGNAL('fileClicked'), self.displayMetadata)
-        self.filesList.fileClicked.connect(self.displayMetadata)
+        #self.filesList.fileClicked.connect(self.displayMetadata)
         self.filesList.imageFileClicked.connect(self.displayImageData)
-        self.filesList.allMetadataClear.connect(self.handleAllMetaClear)
+        self.filesList.pdfFileClicked.connect(self.displayPdfData)
         self.filesList.oneMetadataClear.connect(self.handleOneMetaClear)
+        self.filesList.allMetadataClear.connect(self.handleAllMetaClear)
         self.filesList.operationFailed.connect(self.displayError)
 
         self.actionRemove.triggered.connect(self.handleRemoveFile)
         self.metadataList.itemEntered.connect(self.metaCellEntered)
         self.metadataList.itemExited.connect(self.metaCellExited)
+
+        self.actionCheck_Metadata_keep.triggered.connect(self.handleCleanMetadataKeep)
+        self.actionCheck_Metadata_recon.triggered.connect(self.handleCleanMetadataRecon)
+        self.actionCheck_Content_keep.triggered.connect(self.handleCleanContentKeep)
+        self.actionCheck_Content_recon.triggered.connect(self.handleCleanContentRecon)
 
         #self.filesList.newFile.connect(self.acceptNewFile)
     
@@ -295,15 +311,8 @@ class Ui_MainWindow(object):
                 i += 1
                 self.writeDetails("\t" + row[0] + ": " + row[1])
 
-
-    def displayImageData(self, image, url):
-        # Clear the text field
-        self.personalDataList.clear()
-        
-        # Make auto correct to blurr image
-        self.actionCheck_Content.triggered.connect(self.blurAllFaces)
-
-        # Display the actual image in the tab
+    def loadImageToPersonalData(self, url, image):
+        url = QtCore.QUrl(url)
         doc = self.personalDataList.document()
         doc.addResource(QtGui.QTextDocument.ImageResource, url, QtCore.QVariant(image))
 
@@ -314,6 +323,16 @@ class Ui_MainWindow(object):
         imageFormat.setName(url.toString())
         cursor.insertImage(imageFormat)
 
+
+    def displayImageData(self, image, url):
+        # Clear the text field
+        self.personalDataList.clear()
+        
+        # Make auto correct to blurr image
+        self.actionCheck_Content.triggered.connect(self.blurAllFaces)
+
+        # Display the actual image in the tab
+        self.loadImageToPersonalData(url, image)
         # Now draw the rectangles on the image
         # painter = QtGui.QPainter(self.personalDataList)
         # painter.setPen(QtCore.Qt.red)
@@ -326,6 +345,36 @@ class Ui_MainWindow(object):
         #     rect = QtCore.QRect(QtCore.QPoint(x1, y1), QtCore.QPoint(x2, y2))
         #     painter.drawRect(rect)
 
+    def loadLoadingGif(self):
+        loadImg = QtGui.QImage()
+        loadImg.load("Resources/loading.gif")
+        self.loadImageToPersonalData('Resources/loading.gif', loadImg)
+
+
+    def displayPdfData(self, metadata, path):
+        # Display the metadata
+        self.displayMetadata(metadatac)
+
+        # Clear the text are first
+        self.personalDataList.clear()
+
+        # Load each page
+        pdfDoc = popplerqt4.Poppler.Document.load(path)
+        doc = self.personalDataList.document()
+        for i in range(0, pdfDoc.numPages()):
+            logging.debug('Rendering page ' + str(i))
+            pageImg = pdfDoc.page(i).renderToImage(72, 72, -1, -1, -1, -1)
+            self.loadImageToPersonalData(path + QtCore.QString(i), pageImg)
+
+    def printPdfPersonalData(self, fileName):
+        printer = QtGui.QPrinter()
+        printer.setPageSize(QtGui.QPrinter.Letter)
+        printer.setOutputFormat(QtGui.QPrinter.PdfFormat)
+        printer.setOutputFileName(fileName)
+        self.personalDataList.document().print_(printer)
+
+
+
 
     def blurAllFaces(self):
         filePath = self.filesList.selectedItems()[0].text(2)
@@ -337,11 +386,24 @@ class Ui_MainWindow(object):
         msgBox.setText(error)
         msgBox.exec_()
 
-    def handleRemoveAllMeta(self):
+    def handleCleanMetadataKeep(self):
+        logging.debug("Removing all metadata found...")
         filePath = self.filesList.selectedItems()[0].text(2)
         self.filesList.removeAllMeta(filePath)
 
+    def handleCleanMetadataRecon(self):
+        logging.debug("Reconstructing file for total removal...")
+
+    def handleCleanContentKeep(self):
+        logging.debug("Removing compromising personal info...")
+
+    def handleCleanContentRecon(self):
+        logging.debug("Removing compromising personal info and remaking the file...")
+        filePath = self.filesList.selectedItems()[0].text(2)
+        self.printPdfPersonalData(filePath)
+
     def handleAllMetaClear(self):
+        logging.debug("All Metadata removed, clearing the table...")
         self.metadataList.clear()
         self.metadataList.setRowCount(0)
         self.metadataList.setHorizontalHeaderLabels(["Metadata Header", "Value"])

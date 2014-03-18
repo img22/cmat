@@ -130,6 +130,7 @@ def create_class_file(name, backup, **kwargs):
         return a $FILETYPEStripper() class,
         corresponding to the filetype of the given file
     '''
+    logging.debug("Creating object...")
     if not os.path.isfile(name):
         # check if the file exists
         logging.error('%s is not a valid file' % name)
@@ -175,4 +176,5 @@ def create_class_file(name, backup, **kwargs):
         logging.info('Don\'t have stripper for %s format' % mime)
         return None
 
+    logging.debug("Done Creating object...")
     return stripper_class(filename, parser, mime, backup, is_writable, **kwargs)

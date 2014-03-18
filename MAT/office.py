@@ -165,7 +165,7 @@ class PdfStripper(parser.GenericParser):
         page_width, page_height = page.get_size()
         surface = cairo.PDFSurface(output, page_width, page_height)
         context = cairo.Context(surface)  # context draws on the surface
-        logging.debug('PDF rendering of %s' % self.filename)
+        logging.debug('PDF rendering of file %s' % self.filename)
         for pagenum in range(self.document.get_n_pages()):
             page = self.document.get_page(pagenum)
             context.translate(0, 0)
@@ -186,7 +186,7 @@ class PdfStripper(parser.GenericParser):
             writer = pdfrw.PdfWriter()
             writer.trailer = trailer
             writer.write(self.output)
-            self.do_backup()
+            #self.do_backup()
         except:
             logging.error('Unable to remove all metadata from %s, please install\
 pdfrw' % self.output)
