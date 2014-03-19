@@ -12,7 +12,7 @@ class CQTreeView(QtGui.QTreeWidget):
 
 	#fileClicked       = QtCore.pyqtSignal(list)
 	imageFileClicked  = QtCore.pyqtSignal(QtGui.QImage, QtCore.QUrl)
-	pdfFileClicked    = QtCore.pyqtSignal(list, QtCore.QString)
+	pdfFileClicked    = QtCore.pyqtSignal(AddedFile)
 	operationFailed   = QtCore.pyqtSignal(QtCore.QString)
 	allMetadataClear  = QtCore.pyqtSignal(QtCore.QString)
 	oneMetadataClear  = QtCore.pyqtSignal(int)
@@ -146,10 +146,10 @@ class CQTreeView(QtGui.QTreeWidget):
 
 		# If the clicked file is an image
 		logging.debug("Clicked file type " + fileObj.type)
-		imgTypes = ["JpegStripper", "PngStripper"]
-		pdfType = "PdfStripper"
+		imgTypes = ["Jpeg", "Png"]
+		pdfType = "Pdf"
 		if fileObj.type in imgTypes:
-			self.imageItemClicked(fileObj.filePath)
+			self.imageItemClicked(fileObj)
 		if fileObj.type == pdfType:
 			self.pdfItemClicked(fileObj)
 		#self.fileClicked.emit(self.allFiles[clickedFile].getAllMetadata())
@@ -158,17 +158,14 @@ class CQTreeView(QtGui.QTreeWidget):
 		"""
 			Emits image clicked signal with the image
 		"""
-		url = QtCore.QUrl(QtCore.QString("file://%1").arg(path))
-		fileImg = QtGui.QImageReader(path).read()
-		fileImg.load(path)
-		self.imageFileClicked.emit(fileImg, url)
+		self.imageItemClicked.emit(fileObj)
 
 
-	def pdfItemClicked(self, meta, path):
+	def pdfItemClicked(self, fileObj):
 		"""
 			Emits pdf clicked signal with path to pdf
 		"""
-		self.pdfFileClicked.emit(fileObj.allMetadata, fileObj.filePath);
+		self.pdfFileClicked.emit(fileObj);
 
 
 

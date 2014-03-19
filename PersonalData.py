@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import QObject
 from MAT import mat
@@ -100,7 +101,7 @@ class Strings(QObject):
 
 		if fileType == 'Text':
 			self.processTxt()
-		elif fileType == 'PDF':
+		elif fileType == 'Pdf':
 			self.processPdf()
 
 	def processTxt(self):
@@ -123,7 +124,7 @@ class Strings(QObject):
 			Opens and searches for private info in a
 			PDF file
 		"""
-		pdfDoc = popplerqt4.Poppler.Document.load(filePath)
+		pdfDoc = popplerqt4.Poppler.Document.load(self.path)
 		for i in range(0, pdfDoc.numPages()):
 			self.processPdfString(pdfDoc.page(i), i)
 
@@ -155,12 +156,14 @@ class Strings(QObject):
 			Similar to processString but for pdfs, appends
 			a set of rectangles where suspicious words are found
 		"""
-		string = str(pdfPage.text(None))
+		string = unicode(pdfPage.text(QtCore.QRectF())).encode('utf-8')
 		allWords = string.split(' ')
+		logging.debug('Found ' + str(len(allWords)) + " words")
 		for w in allWords:
 			if self.matches(w):
-				for rec in pdfPage.search():
-					self.strings.append(rec)
+				location = QtCore.QRectF()
+				pdfPage.search(QtCore.QString(w), location, pdfPage.SearchDirection(0), pdfPage.SearchMode(0), pdfPage.Rotation(0))
+				self.strings.append(SingleString(pageNum, location))
 
 
 	def fixTxt(self, ind):
@@ -194,6 +197,13 @@ class Strings(QObject):
 			self.fixTxt(ind)
 		elif fileType == 'PDF':
 			self.fixPdf(ind)
+
+	def getIssueByPage(self, page):
+		result = []
+		for issue in self.strings:
+			if issue.page == page:
+				result.append(issue)
+		return result
 
 
 

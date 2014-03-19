@@ -11,6 +11,7 @@ from CQTreeView import CQTreeView
 from CQTableWidget import CQTableWidget
 from CQLabel import CQLabel
 from CQFileDialog import CQFileDialog
+#from CQTextEdit import CQTextEdit
 import logging
 import popplerqt4
 
@@ -36,7 +37,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(700, 500)
+        MainWindow.resize(800, 500)
 
         self.mainWindow = MainWindow
 
@@ -324,7 +325,8 @@ class Ui_MainWindow(object):
         cursor.insertImage(imageFormat)
 
 
-    def displayImageData(self, metadata, image, url, issue):
+    def displayImageData(self, fileObj):
+
         # Display metadata
         self.displayMetadata(metadata)
 
@@ -335,7 +337,11 @@ class Ui_MainWindow(object):
         self.actionCheck_Content.triggered.connect(self.blurAllFaces)
 
         # Display the actual image in the tab
-        self.loadImageToPersonalData(url, image)
+        url = QtCore.QUrl(QtCore.QString("file://%1").arg(fileObj.filePath))
+        fileImg = QtGui.QImageReader(fileObj.filePath).read()
+        fileImg.load(fileObj.filePath)
+        self.loadImageToPersonalData(url, fileImg)
+
         # Now draw the rectangles on the image
         # painter = QtGui.QPainter(self.personalDataList)
         # painter.setPen(QtCore.Qt.red)
@@ -354,26 +360,44 @@ class Ui_MainWindow(object):
     #     self.loadImageToPersonalData('Resources/loading.gif', loadImg)
 
 
-    def displayPdfData(self, metadata, path):
+    def displayPdfData(self, fileObj):
         # Display the metadata
-        self.displayMetadata(metadata)
+        self.displayMetadata(fileObj.allMetadata)
 
         # Clear the text field
         self.personalDataList.clear()
 
         # Load each page
-        pdfDoc = popplerqt4.Poppler.Document.load(path)
+        pdfDoc = popplerqt4.Poppler.Document.load(fileObj.filePath)
         doc = self.personalDataList.document()
         for i in range(0, pdfDoc.numPages()):
             logging.debug('Rendering page ' + str(i))
             pageImg = pdfDoc.page(i).renderToImage(72, 72, -1, -1, -1, -1)
-            self.loadImageToPersonalData(path + QtCore.QString(i), pageImg)
+            # for issue in fileObj.personalData.data.getIssueByPage(i):
+            #     rect = issue.object.toRect()
+            #     rect.adjust(-2, -2, 2, 2)
+            #     print 'Drawing', rect
+            #     hrect = pageImg.copy(rect)
+            #     painter = QtGui.QPainter(pageImg)
+            #     painter.begin(hrect)
+            #     painter.fillRect(hrect.rect(), QtGui.QColor('red'))
+            #     painter.drawImage(pageImg.rect(), hrect)
+            #     painter.end()
+            self.loadImageToPersonalData(fileObj.filePath + QtCore.QString(i), pageImg)
 
         # Highlight personal info in the pdf image
+        # print fileObj.personalData.data.strings
+        # for i in  range(0, 10):
+        self.personalDataList.paintEvent(QtCore.QRectF(10.0, 20.0, 80.0, 60.0))
+
+            
+
+        # for issue in fileObj.personalData.data.strings:
+        #     logging.debug(issue)
         
 
     def printPdfPersonalData(self, fileName):
-        printer = QtGui.QPrinter()
+        printer = QtGui.QPrinter()  
         printer.setPageSize(QtGui.QPrinter.Letter)
         printer.setOutputFormat(QtGui.QPrinter.PdfFormat)
         printer.setOutputFileName(fileName)
