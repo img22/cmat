@@ -324,7 +324,10 @@ class Ui_MainWindow(object):
         cursor.insertImage(imageFormat)
 
 
-    def displayImageData(self, image, url):
+    def displayImageData(self, metadata, image, url, issue):
+        # Display metadata
+        self.displayMetadata(metadata)
+
         # Clear the text field
         self.personalDataList.clear()
         
@@ -345,17 +348,17 @@ class Ui_MainWindow(object):
         #     rect = QtCore.QRect(QtCore.QPoint(x1, y1), QtCore.QPoint(x2, y2))
         #     painter.drawRect(rect)
 
-    def loadLoadingGif(self):
-        loadImg = QtGui.QImage()
-        loadImg.load("Resources/loading.gif")
-        self.loadImageToPersonalData('Resources/loading.gif', loadImg)
+    # def loadLoadingGif(self):
+    #     loadImg = QtGui.QImage()
+    #     loadImg.load("Resources/loading.gif")
+    #     self.loadImageToPersonalData('Resources/loading.gif', loadImg)
 
 
     def displayPdfData(self, metadata, path):
         # Display the metadata
-        self.displayMetadata(metadatac)
+        self.displayMetadata(metadata)
 
-        # Clear the text are first
+        # Clear the text field
         self.personalDataList.clear()
 
         # Load each page
@@ -366,15 +369,15 @@ class Ui_MainWindow(object):
             pageImg = pdfDoc.page(i).renderToImage(72, 72, -1, -1, -1, -1)
             self.loadImageToPersonalData(path + QtCore.QString(i), pageImg)
 
+        # Highlight personal info in the pdf image
+        
+
     def printPdfPersonalData(self, fileName):
         printer = QtGui.QPrinter()
         printer.setPageSize(QtGui.QPrinter.Letter)
         printer.setOutputFormat(QtGui.QPrinter.PdfFormat)
         printer.setOutputFileName(fileName)
         self.personalDataList.document().print_(printer)
-
-
-
 
     def blurAllFaces(self):
         filePath = self.filesList.selectedItems()[0].text(2)

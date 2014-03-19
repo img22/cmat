@@ -1,3 +1,3 @@
 #!usr/bin/bash
-rm -r mat-test/*-test-clean*
+rm -r cmat-test/*-test-clean*
 python main.py

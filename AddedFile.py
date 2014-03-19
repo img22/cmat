@@ -8,6 +8,7 @@ from math import sqrt
 import string
 import os
 import shutil
+from PersonalData import PersonalData
 """
 	A class to represent a file dragged into the 
 	workspace of cmat
@@ -19,11 +20,11 @@ class AddedFile(QObject):
 	fileCleaned = QtCore.pyqtSignal(QtCore.QString)
 
 	def __init__(self, name, path, isfile, sz, parent):
-	"""
-		Initialize an AddedFile instance, this represents
-		a new file dragged in. It contains all metadata and 
-		prsonal info in the file.
-	"""
+		"""
+			Initialize an AddedFile instance, this represents
+			a new file dragged in. It contains all metadata and 
+			prsonal info in the file.
+		"""
 		super(AddedFile, self).__init__()
 
 		#check the file exists
@@ -58,7 +59,7 @@ class AddedFile(QObject):
 		if self.isFile:
 			self.makeCopy(self.origPath, self.filePath)
 		
-	def getAllMetadata(self):
+	def initAllMetadata(self):
 		"""
 			Gets all metadata of the file using the MAT
 			library.
@@ -71,7 +72,7 @@ class AddedFile(QObject):
                 low_pdf_quality=True)
 
 			classType = self.matObject.__class__.__name__
-			self.type = getFileType(classType.replace("Stripper"))
+			self.type = classType.replace("Stripper", "")
 
 			if self.matObject is None:
 				logging.debug(self.filePath + " is unsupported!")
@@ -101,9 +102,16 @@ class AddedFile(QObject):
 		return self.allMetadata
 
 	def hasMetadata(self):
+		"""
+			Any metadata detected?
+		"""
 		return self.hasMetadata
 
-	def getAllPersonalData(self):
+	def initAllPersonalData(self):
+		"""
+			Initialize/get personal data
+		"""
+		self.personalData = PersonalData(self.filePath, self.type)
 		
 
 	def refreshMetadata(self):

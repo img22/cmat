@@ -5,6 +5,10 @@ import logging
 import numpy
 
 class CQTreeView(QtGui.QTreeWidget):
+	"""
+		Custom QTreeWidget which also contains objects
+		of addfiles. 
+	"""
 
 	#fileClicked       = QtCore.pyqtSignal(list)
 	imageFileClicked  = QtCore.pyqtSignal(QtGui.QImage, QtCore.QUrl)
@@ -51,6 +55,9 @@ class CQTreeView(QtGui.QTreeWidget):
 		#emit signal to notify drop
 
 	def registerFile(self, parent, filePath):
+		"""
+			Register new file into the widget
+		"""
 		fileInfo = QtCore.QFileInfo(filePath)
 		isFile   = fileInfo.isFile()
 		fileName = ""
@@ -67,10 +74,11 @@ class CQTreeView(QtGui.QTreeWidget):
 		droppedFile  = AddedFile(fileName, filePath, isFile, fileSize, parent)
 
 		if isFile:
-			droppedFile.getAllMetadata()
+			droppedFile.initAllMetadata()
+			droppedFile.initAllPersonalData()
 
 		self.addFileToTable(droppedFile)
-		droppedFile.fileCleaned.connect(self.changeToGreen)
+		self.connectSignals(droppedFile)
 
 		if not isFile:
 			#print "Processing dir", filePath
@@ -84,7 +92,17 @@ class CQTreeView(QtGui.QTreeWidget):
 					else:
 						self.registerFile(filePath, filePath + "/" + fname)
 
+	def connectSignals(self, dropped):
+		"""
+			Connect dropped file object signals to
+			methods in this class
+		"""
+		dropped.fileCleaned.connect(self.changeToGreen)
+
 	def addFileToTable(self, fileObj):
+		"""
+			Adds trees of file to the tree widget
+		"""
 		if not fileObj.filePath in self.allFiles.keys():
 			logging.debug("Adding " + str(fileObj.filePath) + " with parent " + str(fileObj.parent))
 			newItem = None
@@ -105,7 +123,6 @@ class CQTreeView(QtGui.QTreeWidget):
 					parent = QtGui.QTreeWidgetItem(self, [parentName, "-", fileObj.filePath])
 					self.allItems[fileObj.parent] = parent
 					self.insertTopLevelItem(0, parent)
-					print "Added parent", fileObj.parent
 				parent = self.allItems[fileObj.parent]
 				newItem = QtGui.QTreeWidgetItem(parent, [fileObj.fileName, size, fileObj.filePath])
 
@@ -121,6 +138,9 @@ class CQTreeView(QtGui.QTreeWidget):
 			
 
 	def itemClicked(self, item, column):
+		"""
+			Called every time a file in the widget is clicked
+		"""
 		clickedFile = item.text(2)
 		fileObj = self.allFiles[clickedFile]
 
@@ -131,10 +151,13 @@ class CQTreeView(QtGui.QTreeWidget):
 		if fileObj.type in imgTypes:
 			self.imageItemClicked(fileObj.filePath)
 		if fileObj.type == pdfType:
-			self.pdfItemClicked(self.allFiles[clickedFile].getAllMetadata(), fileObj.filePath)
+			self.pdfItemClicked(fileObj)
 		#self.fileClicked.emit(self.allFiles[clickedFile].getAllMetadata())
 
 	def imageItemClicked(self, path):
+		"""
+			Emits image clicked signal with the image
+		"""
 		url = QtCore.QUrl(QtCore.QString("file://%1").arg(path))
 		fileImg = QtGui.QImageReader(path).read()
 		fileImg.load(path)
@@ -142,7 +165,10 @@ class CQTreeView(QtGui.QTreeWidget):
 
 
 	def pdfItemClicked(self, meta, path):
-		self.pdfFileClicked.emit(meta, path);
+		"""
+			Emits pdf clicked signal with path to pdf
+		"""
+		self.pdfFileClicked.emit(fileObj.allMetadata, fileObj.filePath);
 
 
 
