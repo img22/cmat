@@ -11,7 +11,7 @@ from CQTreeView import CQTreeView
 from CQTableWidget import CQTableWidget
 from CQLabel import CQLabel
 from CQFileDialog import CQFileDialog
-#from CQTextEdit import CQTextEdit
+from CQTextEdit import CQTextEdit
 import logging
 import popplerqt4
 
@@ -172,17 +172,19 @@ class Ui_MainWindow(object):
         self.actionRemove = QtGui.QAction(MainWindow)
         self.actionRemove.setObjectName(_fromUtf8("actionRemove"))
 
-        self.actionCheck_Content = QtGui.QMenu("Auto Remove Content", MainWindow)
+        self.actionCheck_Content = QtGui.QMenu("Remove All Personal Content", MainWindow)
         self.actionCheck_Content.setObjectName(_fromUtf8("actionCheck_Content"))
-        self.actionCheck_Content_keep = QtGui.QAction("Keep File", self.actionCheck_Content)
-        self.actionCheck_Content_recon = QtGui.QAction("Remake File", self.actionCheck_Content)
+        self.actionCheck_Content_auto = QtGui.QAction("Automatic", self.actionCheck_Content)
+        self.actionCheck_Content_onebone = QtGui.QAction("One-by-one", self.actionCheck_Content)
+        self.actionCheck_Content_useblur = QtGui.QAction("Use blur tool", self.actionCheck_Content)
+        self.actionCheck_Content_settig = QtGui.QAction("Settings...", self.actionCheck_Content)
         self.actionCheck_Content.addAction(self.actionCheck_Content_keep)
         self.actionCheck_Content.addAction(self.actionCheck_Content_recon)
 
-        self.actionCheck_Metadata = QtGui.QMenu("Auto Remove Metadata", MainWindow)
+        self.actionCheck_Metadata = QtGui.QMenu("Remove All Metadata", MainWindow)
         self.actionCheck_Metadata.setObjectName(_fromUtf8("actionCheck_Metadata"))
         self.actionCheck_Metadata_keep = QtGui.QAction("Keep File", self.actionCheck_Metadata)
-        self.actionCheck_Metadata_recon = QtGui.QAction("Remake File", self.actionCheck_Metadata)
+        self.actionCheck_Metadata_recon = QtGui.QAction("Remake as PDF", self.actionCheck_Metadata)
         self.actionCheck_Metadata.addAction(self.actionCheck_Metadata_keep)
         self.actionCheck_Metadata.addAction(self.actionCheck_Metadata_recon)
 
@@ -328,7 +330,7 @@ class Ui_MainWindow(object):
     def displayImageData(self, fileObj):
 
         # Display metadata
-        self.displayMetadata(metadata)
+        self.displayMetadata(fileObj.allMetadata)
 
         # Clear the text field
         self.personalDataList.clear()
@@ -340,6 +342,18 @@ class Ui_MainWindow(object):
         url = QtCore.QUrl(QtCore.QString("file://%1").arg(fileObj.filePath))
         fileImg = QtGui.QImageReader(fileObj.filePath).read()
         fileImg.load(fileObj.filePath)
+
+        # Highlight faces
+        painter = QtGui.QPainter(fileImg)
+        painter.setPen(QtCore.Qt.red)
+        painter.begin(fileImg)
+        for x, y, w, h in fileObj.personalData.data.faces:
+            rect = QtCore.QRect(x, y, w, h)
+            logging.debug("Drawing rect at " + str(rect))
+            painter.drawRect(rect)
+        painter.end()
+
+
         self.loadImageToPersonalData(url, fileImg)
 
         # Now draw the rectangles on the image
@@ -373,22 +387,22 @@ class Ui_MainWindow(object):
         for i in range(0, pdfDoc.numPages()):
             logging.debug('Rendering page ' + str(i))
             pageImg = pdfDoc.page(i).renderToImage(72, 72, -1, -1, -1, -1)
-            # for issue in fileObj.personalData.data.getIssueByPage(i):
-            #     rect = issue.object.toRect()
-            #     rect.adjust(-2, -2, 2, 2)
-            #     print 'Drawing', rect
-            #     hrect = pageImg.copy(rect)
-            #     painter = QtGui.QPainter(pageImg)
-            #     painter.begin(hrect)
-            #     painter.fillRect(hrect.rect(), QtGui.QColor('red'))
-            #     painter.drawImage(pageImg.rect(), hrect)
-            #     painter.end()
+            painter = QtGui.QPainter(pageImg)
+            painter.setPen(QtCore.Qt.red)
+            painter.begin(pageImg)
+            for issue in fileObj.personalData.data.getIssueByPage(i):
+                print 'Painting', issue.object
+                rect = issue.object
+                painter.drawRect(rect)
+            painter.end()
+
             self.loadImageToPersonalData(fileObj.filePath + QtCore.QString(i), pageImg)
 
         # Highlight personal info in the pdf image
         # print fileObj.personalData.data.strings
         # for i in  range(0, 10):
-        self.personalDataList.paintEvent(QtCore.QRectF(10.0, 20.0, 80.0, 60.0))
+        #self.personalDataList.setRect(QtCore.QRectF(10.0, 20.0, 80.0, 60.0))
+        #self.personalDataList.update()
 
             
 

@@ -4,8 +4,16 @@ from AddedFile import AddedFile
 import logging
 import numpy
 
-class CQTextEdit(QtGui.QTextEdit):
+class CQTextEdit(QtGui.QWidget):
+	def __init__(self):
+		self.recToDraw = None
+		self.drawn = False
+		super(CQTextEdit, self).__init__()
+
 	def paintEvent(self, event):
-		painter = QtGui.QPainter(self.viewport())
-        rect = QtCore.QRectF(10.0, 20.0, 80.0, 60.0)
-        painter.drawRect(rect)
+		painter = QtGui.QPainter(self)
+		painter.drawRect(self.recToDraw)
+		print "Drawing", self.recToDraw
+		#super(CQTextEdit, self).paintEvent(event)
+	def setRect(self, rec):
+		self.recToDraw = rec

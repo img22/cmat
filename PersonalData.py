@@ -58,21 +58,11 @@ class Faces:
 		# Read the file
 		image = cv2.imread(str(self.path))
 
-		# Specify the trained cascade classifier
-		face_cascade_name = self.trainingData
-
-		# Create a cascade classifier
-		face_cascade = cv2.CascadeClassifier()
-
-		# Load the specified classifier
-		face_cascade.load(face_cascade_name)
-
-		#Preprocess the image
-		grayimg = cv2.cvtColor(image, cv2.cv.CV_BGR2GRAY)
-		grayimg = cv2.equalizeHist(grayimg)
+		# load the training data
+		cascade = cv2.CascadeClassifier(self.trainingData)
 
 		#Run the classifiers
-		return face_cascade.detectMultiScale(grayimg, 1.1, 2, 0|cv2.cv.CV_HAAR_SCALE_IMAGE, (30, 30))
+		return cascade.detectMultiScale(image, 1.3, 3, cv2.cv.CV_HAAR_SCALE_IMAGE, (20,20))
 
 	def fix(self, faceind):
 

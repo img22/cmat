@@ -11,7 +11,7 @@ class CQTreeView(QtGui.QTreeWidget):
 	"""
 
 	#fileClicked       = QtCore.pyqtSignal(list)
-	imageFileClicked  = QtCore.pyqtSignal(QtGui.QImage, QtCore.QUrl)
+	imageFileClicked  = QtCore.pyqtSignal(AddedFile)
 	pdfFileClicked    = QtCore.pyqtSignal(AddedFile)
 	operationFailed   = QtCore.pyqtSignal(QtCore.QString)
 	allMetadataClear  = QtCore.pyqtSignal(QtCore.QString)
@@ -149,23 +149,9 @@ class CQTreeView(QtGui.QTreeWidget):
 		imgTypes = ["Jpeg", "Png"]
 		pdfType = "Pdf"
 		if fileObj.type in imgTypes:
-			self.imageItemClicked(fileObj)
+			self.imageFileClicked.emit(fileObj)
 		if fileObj.type == pdfType:
-			self.pdfItemClicked(fileObj)
-		#self.fileClicked.emit(self.allFiles[clickedFile].getAllMetadata())
-
-	def imageItemClicked(self, path):
-		"""
-			Emits image clicked signal with the image
-		"""
-		self.imageItemClicked.emit(fileObj)
-
-
-	def pdfItemClicked(self, fileObj):
-		"""
-			Emits pdf clicked signal with path to pdf
-		"""
-		self.pdfFileClicked.emit(fileObj);
+			self.pdfFileClicked.emit(fileObj)
 
 
 
