@@ -4,16 +4,18 @@ from AddedFile import AddedFile
 import logging
 import numpy
 
-class CQTextEdit(QtGui.QWidget):
-	def __init__(self):
-		self.recToDraw = None
-		self.drawn = False
-		super(CQTextEdit, self).__init__()
+class CQTextEdit(QtGui.QTextEdit):
+	areaClicked = QtCore.pyqtSignal(int, int)
+	sx = 0
+	sy = 0
+	def mousePressEvent(self, event):
+		sx = self.horizontalScrollBar().value()
+		sy = self.verticalScrollBar().value()
+		px = event.posF().x() + sx
+		py = event.posF().y() + sy
 
-	def paintEvent(self, event):
-		painter = QtGui.QPainter(self)
-		painter.drawRect(self.recToDraw)
-		print "Drawing", self.recToDraw
-		#super(CQTextEdit, self).paintEvent(event)
-	def setRect(self, rec):
-		self.recToDraw = rec
+		logging.debug(str(px) + "," + str(py) + " clicked")
+		self.sx = sx
+		self.sy = sy
+		self.areaClicked.emit(px, py)
+

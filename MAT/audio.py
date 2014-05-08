@@ -5,6 +5,7 @@
 try:
     from mutagen.flac import FLAC
     from mutagen.oggvorbis import OggVorbis
+    from mutage.mp3 import MP3
 except ImportError:
     pass
 

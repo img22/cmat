@@ -12,45 +12,47 @@ class CQTreeView(QtGui.QTreeWidget):
 
 	#fileClicked       = QtCore.pyqtSignal(list)
 	imageFileClicked  = QtCore.pyqtSignal(AddedFile)
+	filesStartedLoading = QtCore.pyqtSignal(bool)
+	filesFinishedLoading = QtCore.pyqtSignal(bool)
 	pdfFileClicked    = QtCore.pyqtSignal(AddedFile)
+	otherFileClicked = QtCore.pyqtSignal(AddedFile)
 	operationFailed   = QtCore.pyqtSignal(QtCore.QString)
 	allMetadataClear  = QtCore.pyqtSignal(QtCore.QString)
 	oneMetadataClear  = QtCore.pyqtSignal(int)
 
-	def __init__(self, obj):
+	def __init__(self, obj, container, mode):
 		self.allFiles = {}
 		self.allItems = {}
 		super(CQTreeView, self).__init__(obj)
+		self.container = container
+		self.automode = mode
 		QtCore.QObject.connect(self, QtCore.SIGNAL('itemClicked(QTreeWidgetItem*, int)'), self.itemClicked)
 
 	def dragEnterEvent(self, event):
-		#print "Drag enter event"
-		#self.setBackgroundRole(QtGui.QPalette.Highlight)
 		self.setStyleSheet("QTreeWidget { background-color: #A9BCF5; }")
 		event.acceptProposedAction()
 
 	def dragMoveEvent(self, event):
-		#print "Drag move event"
 		event.acceptProposedAction()
 
 	def dragLeaveEvent(self, event):
-		#print "Drag Leave Event"
 		self.setStyleSheet("QTreeWidget { background-color: #FFFFFF; }")
 
 
 	def dropEvent(self, event):
-		#print "Drop Event"
 		self.setStyleSheet("QTreeWidget { background-color: #FFFFFF; }")
 		event.acceptProposedAction()
 		
 		mimeData = event.mimeData()
 		droppedFile = None
 		if mimeData.hasUrls():
+			self.filesStartedLoading.emit(False)
 			for url in mimeData.urls():				
 				self.registerFile(None, url.toLocalFile())
+			self.filesFinishedLoading.emit(True)
 
 		else:
-			print "Has no urls :("
+			logging.debug("Dropped file has no urls!")
 
 		#emit signal to notify drop
 
@@ -71,33 +73,34 @@ class CQTreeView(QtGui.QTreeWidget):
 			fileName = filePath.split('/')[-2]
 
 		fileSize     = fileInfo.size()
-		droppedFile  = AddedFile(fileName, filePath, isFile, fileSize, parent)
-
-		if isFile:
-			droppedFile.initAllMetadata()
-			droppedFile.initAllPersonalData()
-
-		self.addFileToTable(droppedFile)
+		droppedFile  = AddedFile(fileName, filePath, self.container.outputPath, isFile, fileSize, parent)
+		logging.debug("Dropped file has path " + droppedFile.filePath)
 		self.connectSignals(droppedFile)
+		if self.addFileToTable(droppedFile):
+			if isFile:
+				droppedFile.initAllMetadata()
+				droppedFile.initAllPersonalData()
+				if self.automode:
+					droppedFile.autoClean()
 
-		if not isFile:
-			#print "Processing dir", filePath
-			directory = QtCore.QDir(filePath)
-			for fname in directory.entryList():
-				if fname == "." or fname == "..":
-					continue
-				else:
-					if tSlash:
-						self.registerFile(filePath, filePath + fname)
+			if not isFile:
+				#print "Processing dir", filePath
+				directory = QtCore.QDir(filePath)
+				for fname in directory.entryList():
+					if fname == "." or fname == "..":
+						continue
 					else:
-						self.registerFile(filePath, filePath + "/" + fname)
+						if tSlash:
+							self.registerFile(filePath, filePath + fname)
+						else:
+							self.registerFile(filePath, filePath + "/" + fname)
 
 	def connectSignals(self, dropped):
 		"""
 			Connect dropped file object signals to
 			methods in this class
 		"""
-		dropped.fileCleaned.connect(self.changeToGreen)
+		dropped.fileCleaned.connect(self.handleCleaned)
 
 	def addFileToTable(self, fileObj):
 		"""
@@ -133,8 +136,10 @@ class CQTreeView(QtGui.QTreeWidget):
 			# Change the color of the file to red initially
 			self.changeColor(newItem, "#F78181")
 			self.insertTopLevelItem(0, newItem)
+			return True
 		else:
 			logging.error("File already added!")
+			return False
 			
 
 	def itemClicked(self, item, column):
@@ -146,12 +151,14 @@ class CQTreeView(QtGui.QTreeWidget):
 
 		# If the clicked file is an image
 		logging.debug("Clicked file type " + fileObj.type)
-		imgTypes = ["Jpeg", "Png"]
+		imgTypes = ["Jpg", "Jpeg", "Png"]
 		pdfType = "Pdf"
 		if fileObj.type in imgTypes:
 			self.imageFileClicked.emit(fileObj)
-		if fileObj.type == pdfType:
+		elif fileObj.type == pdfType:
 			self.pdfFileClicked.emit(fileObj)
+		else:
+			self.otherFileClicked.emit(fileObj)
 
 
 
@@ -175,27 +182,129 @@ class CQTreeView(QtGui.QTreeWidget):
 
 	def removeMeta(self, filePath, meta, row):
 		try:
-			self.allFiles[filePath].cleanMeta(meta)
+			fileObj = self.allFiles[filePath]
+			logging.debug(fileObj.type)
+			if not (fileObj.type in ['Jpeg', 'Jpg', 'Png']):
+				raise Exception()
+			else:
+				fileObj.cleanMeta(meta)
+				fileObj.refreshMetadata()
+				self.itemClicked(self.allItems[filePath], 0)
 		except Exception as inst:
-			self.operationFailed.emit(QtCore.QString(str(inst)))
-			return
-		self.oneMetadataClear.emit(row)
+			logging.error(str(inst))
+			self.operationFailed.emit("Could not remove this field. Try remove all!")
 
 
-	def blurAllFaces(self, filePath):
-		self.allFiles[filePath].blurAll()
-		item = self.allItems[filePath]
-		self.imageItemClicked(filePath)
 
-	def changeToGreen(self, filePath):
-		#TODO try catch
+	def hidePersonalData(self, filePath, onePdata=False, x=0, y=0):
+		item = self.allFiles[filePath]
+		success = False
+		if item.type == "Pdf":
+			if not onePdata:
+				success = item.personalData.pdata.coverAll()
+				if success:
+					item.autoPersonalCleaned = True
+			else:
+				success = item.personalData.pdata.coverOne(x, y)
+			if success:
+				self.pdfFileClicked.emit(item)
+		elif item.type in ["Jpeg", "Png"]:
+			if not onePdata:
+				success = item.personalData.pdata.blurAll()
+				if success:
+					item.autoPersonalCleaned = True
+			else:
+				success = item.personalData.pdata.blurOne(x, y)
+			if success:
+				self.imageFileClicked.emit(item)
+		item.checkState()
+
+
+	def handleCleaned(self, filePath):
+		"""
+			Changes background color or item to green
+			and signals cleaned metadata
+		"""
 		item = self.allItems[filePath]
 		self.changeColor(item, "green")
+		self.allMetadataClear.emit(filePath)
 
 	def changeColor(self, item, color):
+		"""
+			Changes the background color of an item
+		"""
 		col = QtGui.QColor(color)
 		item.setBackgroundColor(0, col)
 		item.setBackgroundColor(1, col)
+
+	def refreshPdata(self, filePath):
+		"""
+			Refreshes personal data of file by reloading file
+		"""
+		item = self.allFiles[filePath]
+		item.refreshPdata()
+		self.itemClicked(self.allItems[filePath], 0)
+
+	def renderPdata(self, filePath):
+		"""
+			Renders personal data without reloading file
+		"""
+		item = self.allFiles[filePath]
+		item.renderPdata()
+		self.itemClicked(self.allItems[filePath], 0)
+
+	def cleanPdataMarks(self, filePath):
+		"""
+			Cleans the personal data area of red marks
+		"""
+		item = self.allFiles[filePath]
+		item.cleanPersonalDataMarks()
+		self.itemClicked(self.allItems[filePath], 0)
+
+	def getFileObj(self, filePath):
+		"""
+			Exposes the AddedFile obj stored under filePath
+		"""
+		return self.allFiles[filePath]
+
+	def loadBackup(self, filePath):
+		"""
+			Loads the last state of personal data
+		"""
+		fobj = self.allFiles[filePath]
+		fobj.personalData.pdata.loadBackup()
+		self.renderPdata(filePath)
+
+	def doCommit(self, filePath):
+		"""
+			Commits the last state as the current state
+		"""
+		fobj = self.allFiles[filePath]
+		fobj.personalData.pdata.doCommit()
+
+	def doBackup(self, filePath):
+		"""
+			Stores the current state for later restoration
+		"""
+		fobj = self.allFiles[filePath]
+		fobj.personalData.pdata.doBackup()
+
+	def getPdataDocSize(self, filePath):
+		"""
+			Returns the document size
+		"""
+		fobj = self.allFiles[filePath]
+		return fobj.personalData.pdata.getDocSize()
+
+	def getOrigPath(self, filepath):
+		"""
+			Returns the original path of
+			dropped file`
+		"""
+		# Prod - don't want to change test files
+		#return self.allFiles[filePath].origPath
+		return AddedFile.newName(filepath, '-dev')
+
 
 	def removeAllMeta(self, path):
 		try:
@@ -204,5 +313,21 @@ class CQTreeView(QtGui.QTreeWidget):
 			self.operationFailed.emit(QtCore.QString(str(inst)))
 			return
 		self.allFiles[path].refreshMetadata()
-		self.allMetadataClear.emit(path)
+		self.itemClicked(self.allItems[path], 0)
+		# self.allMetadataClear.emit(path)
 
+	def changeMode(self, mode):
+		self.automode = mode
+
+	def saveFile(self, path):
+		"""
+			Saves the file to output dir specified
+			in command line
+		"""
+		fobj = self.allFiles[path]
+		self.allFiles[path].selfCopy()
+
+	def cleanUp(self):
+		for key in self.allFiles.keys():
+			af = self.allFiles[key]
+			af.selfRemove()

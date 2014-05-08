@@ -5,6 +5,7 @@
 import subprocess
 import parser
 import shutil
+import logging
 
 
 class ExiftoolStripper(parser.GenericParser):
@@ -29,12 +30,16 @@ class ExiftoolStripper(parser.GenericParser):
     # Added removing a specific tah
     def remove_meta(self, metaname):
         try:
-            if self.backup:
-                self.create_backup_copy()
-            subprocess.call(['exiftool', '-m', '-'+metaname+'=',
+            # if self.backup:
+            #     self.create_backup_copy()
+            # metaname = metaname.replace(" ", "_")
+            logging.debug("Clearing " + metaname)
+            result = subprocess.call(['exiftool', '-m', '-'+metaname+'=',
                 '-adobe=', '-overwrite_original', self.filename], stdout=open('/dev/null'))
-            return True
-        except:
+            logging.error("Exif result: " + str(result))
+            return result == 0
+        except Exception as inst:
+            logging.error(str(inst))
             return False
 
     def remove_all(self):
@@ -42,8 +47,8 @@ class ExiftoolStripper(parser.GenericParser):
             Remove all metadata with help of exiftool
         '''
         try:
-            if self.backup:
-                self.create_backup_copy()
+            # if self.backup:
+            #     self.create_backup_copy()
             # Note: '-All=' must be followed by a known exiftool option.
             subprocess.call(['exiftool', '-m', '-all=',
                 '-adobe=', '-overwrite_original', self.filename],

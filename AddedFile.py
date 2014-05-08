@@ -2,13 +2,15 @@ from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import QObject
 from MAT import mat
 from MAT import strippers
+import tempfile
 import logging
 import cv2
 from math import sqrt
 import string
 import os
 import shutil
-from PersonalData import PersonalData
+import copy
+from PersonalData import ImgPersonalData, PdfPersonalData
 """
 	A class to represent a file dragged into the 
 	workspace of cmat
@@ -19,7 +21,7 @@ class AddedFile(QObject):
 	#signal to emit when file is clean
 	fileCleaned = QtCore.pyqtSignal(QtCore.QString)
 
-	def __init__(self, name, path, isfile, sz, parent):
+	def __init__(self, name, path, outputPath, isfile, sz, parent):
 		"""
 			Initialize an AddedFile instance, this represents
 			a new file dragged in. It contains all metadata and 
@@ -31,16 +33,19 @@ class AddedFile(QObject):
 		if not QtCore.QFileInfo(path).exists():
 			raise Exception("No such file or directory!" + path)
 
-		# create a new file to work with, new file has -clean tag
+		# create a new file to work with, new file has -cmat tag
 		if isfile:
-			self.fileName = self.newName(str(name))
-			self.filePath = self.newName(str(path))
+			self.fileName = AddedFile.newName(str(name), "-cmat")
+			self.filePath = AddedFile.tempName(self.fileName)
+			logging.debug('Out Path is ' + path)
 		else:
 			self.fileName = name
 			self.filePath = path
 
 		# basic file infor
 		self.origPath = path
+		self.origName = name
+		self.outputPath = outputPath
 		self.isFile = isfile
 		self.fileSize = sz
 		self.parent = parent
@@ -51,11 +56,16 @@ class AddedFile(QObject):
 		# all metadata in the file
 		self.allMetadata = []
 		self.hasMetadata = True
+
+		# has it been cleaned
+		self.autoPersonalCleaned = False
+		self.autoMetaCleaned = False
+		self.reconMetaCleaned = False
 		
 		# all personal info in the file
 		self.personalData = None
 
-		#Copy the given file to the -clean file
+		#Copy the given file to the -cmat file
 		if self.isFile:
 			self.makeCopy(self.origPath, self.filePath)
 		
@@ -82,7 +92,7 @@ class AddedFile(QObject):
 			
 			metaDict = self.matObject.get_meta()
 
-			if len(metaDict.keys()) == 0:
+			if metaDict is None or len(metaDict.keys()) == 0:
 				self.hasMetadata = False
 			else:
 				for key in metaDict.keys():
@@ -111,18 +121,51 @@ class AddedFile(QObject):
 		"""
 			Initialize/get personal data
 		"""
-		self.personalData = PersonalData(self.filePath, self.type)
+		if self.type == 'Pdf':
+			self.personalData = PdfPersonalData(self.filePath)
+		elif self.type in ['Jpeg', 'Png']:
+			self.personalData = ImgPersonalData(self.filePath)
+
+	def cleanPersonalDataMarks(self):
+		"""
+			Renders personal data without red marks
+		"""
+		self.personalData.clearMarks()
 		
 
 	def refreshMetadata(self):
+		self.allMetadata = []
 		self.matObject = mat.create_class_file(str(self.filePath), str(self.filePath), add2archive=True,
                 low_pdf_quality=True)
-		if len(self.allMetadata) != 0 or self.allMetadata[0] != -1:
-			metaDict = self.matObject.get_meta()
+		logging.debug("Refreshing metadata..")
+		
+		metaDict = self.matObject.get_meta()
+		if metaDict is not None:
 			for key in metaDict.keys():
 				logging.debug("Found metadata header: " + key)
 				self.allMetadata.append([key, metaDict[key]])
+		
+		if len(self.allMetadata) == 0:
+			self.hasMetadata = False
+		logging.debug("Done refreshing metadata..")
+		self.checkState()
 		return self.allMetadata
+
+	def refreshPdata(self):
+		"""
+			Reloads personal data from file
+		"""
+		self.initAllPersonalData()
+
+	def renderPdata(self):
+		"""
+			Renders pesonal data without relaoding file
+		"""
+		if self.type == 'Pdf':
+			self.personalData.pdata.renderPages()
+		elif self.type in ['Jpg', 'Jpeg', 'Png']:
+			logging.debug('Rendering Image..')
+			self.personalData.pdata.renderImage()
 
 	def cleanMeta(self, mname):
 		cleanError = mname + " could not be removed! This means the metadata can not be removed separately! Try Auto Removing metadata from the file."
@@ -131,32 +174,88 @@ class AddedFile(QObject):
 		self.checkState()
 
 
-	def blurAll(self):
-		for f in self.faces:
-			self.blurFace(f)
-
-
 	def checkState(self):
-		if (self.allMetadata is None 
-			or len(self.allMetadata) == 0 
-			or self.allMetadata[0] == -1) and (self.faces is None 
-			or len(self.faces) == 0):
-
+		if ((not self.hasMetadata) and (self.personalData is not None) and self.personalData.isClean()):
 			logging.debug("File is clean! Emitting clean signal...")
 			self.fileCleaned.emit(self.filePath)
+			logging.debug("Writing to output...")
+
+			# write the file to output, now that it is clean
+			self.makeCopy(self.filePath, AddedFile.changeBase(self.origPath, self.outputPath))
 
 	def removeAllMeta(self):
 		if not self.matObject.remove_all():
 			raise Exception("Error removing metadata")
+		self.autoMetaCleaned = True
 		self.checkState()
 
 	def makeCopy(self, pathOrig, pathNew):
+		logging.debug("Copying file from " + pathOrig + " to " + pathNew)
 		shutil.copyfile(str(pathOrig), str(pathNew))
 
-	def newName(self, origName):
+	def selfCopy(self):
+		self.makeCopy(self.filePath, self.outputPath + '/' + self.origName)
+
+	def selfRemove(self):
+		logging.debug("Removing " + self.filePath)
+		os.remove(self.filePath)
+
+
+	def autoClean(self):
+		logging.debug("Auto cleaning file...")
+		success = False
+		if self.type == "Pdf":
+			success = self.personalData.pdata.coverAll()
+			if success:
+				self.autoPersonalCleaned = True
+		elif self.type in ["Jpeg", "Png"]:
+			success = self.personalData.pdata.blurAll()
+
+		if self.personalData is not None:
+			self.personalData.pdata.doCommit()
+
+		self.refreshMetadata()
+		self.removeAllMeta()
+		self.refreshMetadata()
+		
+		logging.debug("Done auto cleaning!")
+
+	@staticmethod
+	def newName(origName, ext):
+		origName = str(origName)
 		lastDot = string.rfind(origName, ".")
 		if lastDot == -1:
-			lastDot = origName.length
-		return QtCore.QString(origName[:lastDot] + "-clean" + origName[lastDot:])
+			lastDot = len(origName)
+		return QtCore.QString(origName[:lastDot] + ext + origName[lastDot:])
+
+	@staticmethod
+	def tempName(fileName):
+		tempDir = tempfile.mkdtemp()
+		return QtCore.QString(tempDir + '/' + fileName)
+
+
+	@staticmethod
+	def changeExt(fname, newExt):
+		fname = str(fname)
+		ind = fname.rindex('.')
+		fname = fname[:ind+1] + newExt
+		return QtCore.QString(fname)
+
+	@staticmethod
+	def check_path(inputF, outputF):
+		infoI = QtCore.QFileInfo(inputF)
+		infoO = QtCore.QFileInfo(outputF)
+
+		pathI = infoI.canonicalFilePath()
+		pathO = infoO.canonicalFilePath()
+
+		if pathI in pathO:
+			return False
+		return True
+
+	@staticmethod
+	def changeBase(path, newbase):
+		fname = path.split('/')[-1]
+		return newbase + '/' + fname
 
 		        

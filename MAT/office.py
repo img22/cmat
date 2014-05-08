@@ -4,7 +4,7 @@
 
 import os
 import logging
-import zipfile
+import czipfile
 import fileinput
 import tempfile
 import shutil
@@ -33,7 +33,7 @@ class OpenDocumentStripper(archive.GenericArchiveStripper):
             Return a dict with all the meta of the file by
             trying to read the meta.xml file.
         '''
-        zipin = zipfile.ZipFile(self.filename, 'r')
+        zipin = czipfile.ZipFile(self.filename, 'r')
         metadata = {}
         try:
             content = zipin.read('meta.xml')
@@ -61,55 +61,56 @@ class OpenDocumentStripper(archive.GenericArchiveStripper):
             There is a patch implementing the Zipfile.remove()
             method here : http://bugs.python.org/issue6818
         '''
-        zipin = zipfile.ZipFile(self.filename, 'r')
-        zipout = zipfile.ZipFile(self.output, 'w', allowZip64=True)
+        zipin = czipfile.ZipFile(self.filename, 'a')
+	zipin.remove('meta.xml')
+        #zipout = czipfile.ZipFile(self.output, 'w', allowZip64=True)
 
-        for item in zipin.namelist():
-            name = os.path.join(self.tempdir, item)
-            _, ext = os.path.splitext(name)
+        #for item in zipin.namelist():
+        #    name = os.path.join(self.tempdir, item)
+        #    _, ext = os.path.splitext(name)
 
-            if item.endswith('manifest.xml'):
-            # contain the list of all files present in the archive
-                zipin.extract(item, self.tempdir)
-                for line in fileinput.input(name, inplace=1):
-                    # remove the line which contains "meta.xml"
-                    line = line.strip()
-                    if not 'meta.xml' in line:
-                        print line
-                zipout.write(name, item)
+        #    if item.endswith('manifest.xml'):
+        #    # contain the list of all files present in the archive
+        #        zipin.extract(item, self.tempdir)
+        #        for line in fileinput.input(name, inplace=1):
+        #            # remove the line which contains "meta.xml"
+        #            line = line.strip()
+        #            if not 'meta.xml' in line:
+        #                print line
+        #        zipout.write(name, item)
+	#
+        #    elif ext in parser.NOMETA or item == 'mimetype':
+        #        # keep NOMETA files, and the "manifest" file
+        #        if item != 'meta.xml':  # contains the metadata
+        #            zipin.extract(item, self.tempdir)
+        #            zipout.write(name, item)
 
-            elif ext in parser.NOMETA or item == 'mimetype':
-                # keep NOMETA files, and the "manifest" file
-                if item != 'meta.xml':  # contains the metadata
-                    zipin.extract(item, self.tempdir)
-                    zipout.write(name, item)
-
-            else:
-                zipin.extract(item, self.tempdir)
-                if os.path.isfile(name):
-                    try:
-                        cfile = mat.create_class_file(name, False,
-                            add2archive=self.add2archive)
-                        cfile.remove_all()
-                        logging.debug('Processing %s from %s' % (item,
-                            self.filename))
-                        zipout.write(name, item)
-                    except:
-                        logging.info('%s\'s fileformat is not supported' % item)
-                        if self.add2archive:
-                            zipout.write(name, item)
-        zipout.comment = ''
-        logging.info('%s processed' % self.filename)
-        zipin.close()
-        zipout.close()
-        self.do_backup()
+        #    else:
+        #        zipin.extract(item, self.tempdir)
+        #        if os.path.isfile(name):
+        #            try:
+        #                cfile = mat.create_class_file(name, False,
+        #                    add2archive=self.add2archive)
+        #                cfile.remove_all()
+        #                logging.debug('Processing %s from %s' % (item,
+        #                    self.filename))
+        #                zipout.write(name, item)
+        #            except:
+        #                logging.info('%s\'s fileformat is not supported' % item)
+        #                if self.add2archive:
+        #                    zipout.write(name, item)
+        #zipout.comment = ''
+        #logging.info('%s processed' % self.filename)
+        #zipin.close()
+        #zipout.close()
+        #self.do_backup()
         return True
 
     def is_clean(self):
         '''
             Check if the file is clean from harmful metadatas
         '''
-        zipin = zipfile.ZipFile(self.filename, 'r')
+        zipin = czipfile.ZipFile(self.filename, 'r')
         try:
             zipin.getinfo('meta.xml')
         except KeyError:  # no meta.xml in the file
@@ -179,7 +180,7 @@ class PdfStripper(parser.GenericParser):
 
         try:
             import pdfrw  # For now, poppler cannot write meta, so we must use pdfrw
-            logging.debug('Removing %s\'s superficial metadata' % self.filename)
+            logging.debug('Removing %s\'s superficial metadata' % self.output)
             trailer = pdfrw.PdfReader(self.output)
             trailer.Info.Producer = None
             trailer.Info.Creator = None
@@ -217,44 +218,45 @@ class OpenXmlStripper(archive.GenericArchiveStripper):
             There is a patch implementing the Zipfile.remove()
             method here : http://bugs.python.org/issue6818
         '''
-        zipin = zipfile.ZipFile(self.filename, 'r')
-        zipout = zipfile.ZipFile(self.output, 'w',
-            allowZip64=True)
-        for item in zipin.namelist():
-            name = os.path.join(self.tempdir, item)
-            _, ext = os.path.splitext(name)
-            if item.startswith('docProps/'):  # metadatas
-                pass
-            elif ext in parser.NOMETA or item == '.rels':
-                # keep parser.NOMETA files, and the file named ".rels"
-                zipin.extract(item, self.tempdir)
-                zipout.write(name, item)
-            else:
-                zipin.extract(item, self.tempdir)
-                if os.path.isfile(name):  # don't care about folders
-                    try:
-                        cfile = mat.create_class_file(name, False,
-                            add2archive=self.add2archive)
-                        cfile.remove_all()
-                        logging.debug('Processing %s from %s' % (item,
-                            self.filename))
-                        zipout.write(name, item)
-                    except:
-                        logging.info('%s\'s fileformat is not supported' % item)
-                        if self.add2archive:
-                            zipout.write(name, item)
-        zipout.comment = ''
-        logging.info('%s processed' % self.filename)
-        zipin.close()
-        zipout.close()
-        self.do_backup()
+        zipin = czipfile.ZipFile(self.filename, 'a')
+	zipin.remove('meta.xml')
+        #zipout = czipfile.ZipFile(self.output, 'w',
+        #    allowZip64=True)
+        #for item in zipin.namelist():
+        #    name = os.path.join(self.tempdir, item)
+        #    _, ext = os.path.splitext(name)
+        #    if item.startswith('docProps/'):  # metadatas
+        #        pass
+        #    elif ext in parser.NOMETA or item == '.rels':
+        #        # keep parser.NOMETA files, and the file named ".rels"
+        #        zipin.extract(item, self.tempdir)
+        #        zipout.write(name, item)
+        #    else:
+        #        zipin.extract(item, self.tempdir)
+        #        if os.path.isfile(name):  # don't care about folders
+        #            try:
+        #                cfile = mat.create_class_file(name, False,
+        #                    add2archive=self.add2archive)
+        #                cfile.remove_all()
+        #                logging.debug('Processing %s from %s' % (item,
+        #                    self.filename))
+        #                zipout.write(name, item)
+        #            except:
+        #                logging.info('%s\'s fileformat is not supported' % item)
+        #                if self.add2archive:
+        #                    zipout.write(name, item)
+        #zipout.comment = ''
+        #logging.info('%s processed' % self.filename)
+        #zipin.close()
+        #zipout.close()
+        #self.do_backup()
         return True
 
     def is_clean(self):
         '''
             Check if the file is clean from harmful metadatas
         '''
-        zipin = zipfile.ZipFile(self.filename, 'r')
+        zipin = czipfile.ZipFile(self.filename, 'r')
         for item in zipin.namelist():
             if item.startswith('docProps/'):
                 return False
@@ -267,7 +269,7 @@ class OpenXmlStripper(archive.GenericArchiveStripper):
         '''
             Return a dict with all the meta of the file
         '''
-        zipin = zipfile.ZipFile(self.filename, 'r')
+        zipin = czipfile.ZipFile(self.filename, 'r')
         metadata = {}
         for item in zipin.namelist():
             if item.startswith('docProps/'):

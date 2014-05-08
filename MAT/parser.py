@@ -37,14 +37,15 @@ class GenericParser(object):
         except TypeError:  # get rid of "decoding Unicode is not supported"
             self.filename = filename
         self.basename = os.path.basename(filename)
-        _, output = tempfile.mkstemp()
-        self.output = hachoir_core.cmd_line.unicodeFilename(output)
+        #_, output = tempfile.mkstemp()
+        self.output = filename#hachoir_core.cmd_line.unicodeFilename(output)
 
-    def __del__(self):
-        ''' Remove tempfile if it was not used
-        '''
-        if os.path.exists(self.output):
-            mat.secure_remove(self.output)
+    # def __del__(self):
+    #     ''' Remove tempfile if it was not used
+    #     '''
+    #     pass
+    #     # if os.path.exists(self.output):
+    #     #     mat.secure_remove(self.output)
 
     def is_clean(self):
         '''
@@ -71,7 +72,7 @@ class GenericParser(object):
         '''
         state = self._remove_all(self.editor)
         hachoir_core.field.writeIntoFile(self.editor, self.output)
-        self.do_backup()
+        #self.do_backup()
         return state
 
     def _remove_all(self, fieldset):
@@ -101,8 +102,6 @@ class GenericParser(object):
         '''
         metadata = {}
         self._get_meta(self.editor, metadata)
-        print metadata
-        return metadata
         # if fieldset is None:
         #     fieldset = self.editor
         # try:
@@ -117,7 +116,7 @@ class GenericParser(object):
         #     return False
 
         # hachoir_core.field.writeIntoFile(self.editor, self.output)
-        self.remove_all()
+        #self.remove_all()
 
     def _get_meta(self, fieldset, metadata):
         '''

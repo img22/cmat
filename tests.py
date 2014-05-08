@@ -1,3 +1,5 @@
-from PersonalData import PersonalData
+from PersonalData import PdfPersonalData, ImgPersonalData
 
-pd = PersonalData('cmat-test/pdf-test.pdf', 'Pdf')
+pd = PdfPersonalData('cmat-test/pdf-test.pdf')
+imgPd = ImgPersonalData('cmat-test/face-test.pdf')
+imgPd.pdata.blurAll()
